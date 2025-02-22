@@ -13,9 +13,9 @@ import (
 )
 
 type Router struct {
-	Dir    string
-	Html   string
-	Routes []*Route
+	Dir     string
+	Routes  []*Route
+	Page500 string
 }
 
 type Project struct {
@@ -29,23 +29,23 @@ type Route struct {
 
 	UrlPath  string
 	FilePath string
-	Markup   string
+	Page200  string
 }
 
 func NewRouter(dir, html string) *Router {
 	return &Router{
-		Dir:  dir,
-		Html: html,
+		Dir: dir,
 	}
 }
 
-func (r *Route) Render(data any) (string, error) {
+func (r *Route) Render(data any) error {
 	var buf bytes.Buffer
 	err := r.template.Execute(&buf, data)
 	if err != nil {
-		return "", err
+		return err
 	}
-	return buf.String(), nil
+	r.Page200 = buf.String()
+	return nil
 }
 
 func (router *Router) Load() error {
@@ -55,7 +55,7 @@ func (router *Router) Load() error {
 		if err != nil {
 			return err
 		}
-		if d.IsDir() || !strings.HasSuffix(path, ".html") {
+		if d.IsDir() || filepath.Base(path) != "200.html" {
 			return nil
 		}
 
@@ -63,7 +63,7 @@ func (router *Router) Load() error {
 		if strings.HasPrefix(route, "/") {
 			route = strings.TrimPrefix(route, "/")
 		}
-		route = strings.TrimSuffix(route, router.Html)
+		route = strings.TrimSuffix(route, "200.html")
 		route = strings.TrimSuffix(route, "/")
 		if route == "" {
 			route = "/"
@@ -86,7 +86,7 @@ func (router *Router) Load() error {
 			template: tmpl,
 			UrlPath:  route,
 			FilePath: path,
-			Markup:   buf.String(),
+			Page200:  buf.String(),
 		})
 		return nil
 	})
@@ -95,6 +95,24 @@ func (router *Router) Load() error {
 		return err
 	}
 	router.Routes = routes
+
+	page500Path := filepath.Join(router.Dir, "500.html")
+	if _, err := os.Stat(page500Path); os.IsNotExist(err) {
+		baseHTML := `<html><head><title>500 - Internal Server Error</title></head><body><h1>500 - Internal Server Error</h1><p>Something went wrong.</p></body></html>`
+		router.Page500 = baseHTML
+	} else {
+		tmpl, err := template.ParseFiles(page500Path)
+		if err != nil {
+			return err
+		}
+		var buf bytes.Buffer
+		err = tmpl.Execute(&buf, nil)
+		if err != nil {
+			return err
+		}
+		router.Page500 = buf.String()
+		defer buf.Reset()
+	}
 	return nil
 }
 
@@ -104,53 +122,6 @@ func (r *Router) Reload() error {
 		if err != nil {
 			return err
 		}
-	}
-
-	err := filepath.WalkDir(r.Dir, func(path string, d fs.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
-		if d.IsDir() || !strings.HasSuffix(path, ".html") {
-			return nil
-		}
-		for _, route := range r.Routes {
-			if route.FilePath == path {
-				return nil
-			}
-		}
-		route := strings.TrimPrefix(filepath.ToSlash(path), filepath.ToSlash(r.Dir))
-		if strings.HasPrefix(route, "/") {
-			route = strings.TrimPrefix(route, "/")
-		}
-		route = strings.TrimSuffix(route, r.Html)
-		route = strings.TrimSuffix(route, "/")
-		if route == "" {
-			route = "/"
-		} else if !strings.HasPrefix(route, "/") {
-			route = "/" + route
-		}
-
-		tmpl, err := template.ParseFiles(path)
-		if err != nil {
-			return err
-		}
-
-		var buf bytes.Buffer
-		err = tmpl.Execute(&buf, nil)
-		if err != nil {
-			return err
-		}
-
-		r.Routes = append(r.Routes, &Route{
-			template: tmpl,
-			UrlPath:  route,
-			FilePath: path,
-			Markup:   buf.String(),
-		})
-		return nil
-	})
-	if err != nil {
-		return err
 	}
 	return nil
 }
