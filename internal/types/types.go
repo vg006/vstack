@@ -15,8 +15,7 @@ import (
 type Router struct {
 	Dir    string
 	Html   string
-	Routes []Route
-	Signal chan int
+	Routes []*Route
 }
 
 type Project struct {
@@ -35,9 +34,8 @@ type Route struct {
 
 func NewRouter(dir, html string) *Router {
 	return &Router{
-		Dir:    dir,
-		Html:   html,
-		Signal: make(chan int, 1),
+		Dir:  dir,
+		Html: html,
 	}
 }
 
@@ -51,7 +49,7 @@ func (r *Route) Render(data any) (string, error) {
 }
 
 func (router *Router) Load() error {
-	var routes []Route
+	var routes []*Route
 
 	err := filepath.WalkDir(router.Dir, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
@@ -84,7 +82,7 @@ func (router *Router) Load() error {
 			return err
 		}
 
-		routes = append(routes, Route{
+		routes = append(routes, &Route{
 			template: tmpl,
 			UrlPath:  route,
 			FilePath: path,
@@ -97,6 +95,72 @@ func (router *Router) Load() error {
 		return err
 	}
 	router.Routes = routes
+	return nil
+}
+
+func (r *Router) Reload() error {
+	for _, route := range r.Routes {
+		err := route.Reload()
+		if err != nil {
+			return err
+		}
+	}
+
+	err := filepath.WalkDir(r.Dir, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if d.IsDir() || !strings.HasSuffix(path, ".html") {
+			return nil
+		}
+		for _, route := range r.Routes {
+			if route.FilePath == path {
+				return nil
+			}
+		}
+		route := strings.TrimPrefix(filepath.ToSlash(path), filepath.ToSlash(r.Dir))
+		if strings.HasPrefix(route, "/") {
+			route = strings.TrimPrefix(route, "/")
+		}
+		route = strings.TrimSuffix(route, r.Html)
+		route = strings.TrimSuffix(route, "/")
+		if route == "" {
+			route = "/"
+		} else if !strings.HasPrefix(route, "/") {
+			route = "/" + route
+		}
+
+		tmpl, err := template.ParseFiles(path)
+		if err != nil {
+			return err
+		}
+
+		var buf bytes.Buffer
+		err = tmpl.Execute(&buf, nil)
+		if err != nil {
+			return err
+		}
+
+		r.Routes = append(r.Routes, &Route{
+			template: tmpl,
+			UrlPath:  route,
+			FilePath: path,
+			Markup:   buf.String(),
+		})
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (r *Route) Reload() error {
+	tmpl, err := template.ParseFiles(r.FilePath)
+	if err != nil {
+		return err
+	}
+	r.template = tmpl
 	return nil
 }
 
@@ -133,7 +197,7 @@ func (r *Router) InitHMR() {
 					return
 				}
 				if event.Op&fsnotify.Write == fsnotify.Write && strings.HasSuffix(event.Name, ".html") {
-					err := r.Load()
+					err := r.Reload()
 					if err != nil {
 						fmt.Fprintf(os.Stderr, "Error reloading templates: %v\n", err)
 						return
