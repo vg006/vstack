@@ -12,6 +12,13 @@ import (
 	"gopkg.in/fsnotify.v1"
 )
 
+type Router struct {
+	Dir    string
+	Html   string
+	Routes []Route
+	Signal chan int
+}
+
 type Project struct {
 	Name    string
 	ModName string
@@ -26,6 +33,14 @@ type Route struct {
 	Markup   string
 }
 
+func NewRouter(dir, html string) *Router {
+	return &Router{
+		Dir:    dir,
+		Html:   html,
+		Signal: make(chan int, 1),
+	}
+}
+
 func (r *Route) Render(data any) (string, error) {
 	var buf bytes.Buffer
 	err := r.template.Execute(&buf, data)
@@ -35,57 +50,10 @@ func (r *Route) Render(data any) (string, error) {
 	return buf.String(), nil
 }
 
-func (r *Route) Reload() error {
-	tmpl, err := template.ParseFiles(r.FilePath)
-	if err != nil {
-		return err
-	}
-	r.template = tmpl
-	return nil
-}
-
-func Reload(routes []Route) error {
-	for _, route := range routes {
-		if err := route.Reload(); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func Load(dir string, html string, hmr bool) ([]Route, error) {
+func (router *Router) Load() error {
 	var routes []Route
-	var watcher fsnotify.Watcher
 
-	if hmr {
-		watcher, err := fsnotify.NewWatcher()
-		if err != nil {
-			return nil, fmt.Errorf("error creating watcher: %v", err)
-		}
-		defer watcher.Close()
-
-		go func() {
-			for {
-				select {
-				case event, ok := <-watcher.Events:
-					if !ok {
-						return
-					}
-					if event.Op&fsnotify.Write == fsnotify.Write && strings.HasSuffix(event.Name, ".html") {
-						Load(dir, html, hmr)
-						fmt.Fprintf(os.Stdout, "Reloaded templates due to change in %s\n", event.Name)
-					}
-				case err, ok := <-watcher.Errors:
-					if !ok {
-						return
-					}
-					fmt.Fprintf(os.Stderr, "Watcher error: %v\n", err)
-				}
-			}
-		}()
-	}
-
-	err := filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
+	err := filepath.WalkDir(router.Dir, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
@@ -93,19 +61,11 @@ func Load(dir string, html string, hmr bool) ([]Route, error) {
 			return nil
 		}
 
-		if hmr && d.IsDir() {
-			err = watcher.Add(path)
-			if err != nil {
-				return fmt.Errorf("error watching %s: %v", path, err)
-			}
-			fmt.Fprintf(os.Stdout, "Watching directory: %s\n", path)
-		}
-
-		route := strings.TrimPrefix(filepath.ToSlash(path), filepath.ToSlash(dir))
+		route := strings.TrimPrefix(filepath.ToSlash(path), filepath.ToSlash(router.Dir))
 		if strings.HasPrefix(route, "/") {
 			route = strings.TrimPrefix(route, "/")
 		}
-		route = strings.TrimSuffix(route, html)
+		route = strings.TrimSuffix(route, router.Html)
 		route = strings.TrimSuffix(route, "/")
 		if route == "" {
 			route = "/"
@@ -134,19 +94,20 @@ func Load(dir string, html string, hmr bool) ([]Route, error) {
 	})
 
 	if err != nil {
-		return nil, err
+		return err
 	}
-	return routes, nil
+	router.Routes = routes
+	return nil
 }
 
-func InitiateHMR(dir, html string, hmr bool) error {
+func (r *Router) InitHMR() {
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
-		return fmt.Errorf("error creating watcher: %v", err)
+		fmt.Fprintf(os.Stderr, "Error creating watcher: %v\n", err)
+		return
 	}
-	defer watcher.Close()
 
-	err = filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
+	err = filepath.WalkDir(r.Dir, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
@@ -160,7 +121,8 @@ func InitiateHMR(dir, html string, hmr bool) error {
 		return nil
 	})
 	if err != nil {
-		return fmt.Errorf("error setting up watcher: %v", err)
+		fmt.Printf("error setting up watcher: %v", err)
+		return
 	}
 
 	go func() {
@@ -171,7 +133,11 @@ func InitiateHMR(dir, html string, hmr bool) error {
 					return
 				}
 				if event.Op&fsnotify.Write == fsnotify.Write && strings.HasSuffix(event.Name, ".html") {
-					Load(dir, html, hmr)
+					err := r.Load()
+					if err != nil {
+						fmt.Fprintf(os.Stderr, "Error reloading templates: %v\n", err)
+						return
+					}
 					fmt.Fprintf(os.Stdout, "Reloaded templates due to change in %s\n", event.Name)
 				}
 			case err, ok := <-watcher.Errors:
@@ -182,5 +148,4 @@ func InitiateHMR(dir, html string, hmr bool) error {
 			}
 		}
 	}()
-	return nil
 }
