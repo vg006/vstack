@@ -135,11 +135,11 @@ func (r *Route) Reload() error {
 	return nil
 }
 
-func (r *Router) InitHMR() {
+func (r *Router) InitHMR() error {
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error creating watcher: %v\n", err)
-		return
+		return err
 	}
 
 	err = filepath.WalkDir(r.Dir, func(path string, d fs.DirEntry, err error) error {
@@ -157,7 +157,7 @@ func (r *Router) InitHMR() {
 	})
 	if err != nil {
 		fmt.Printf("error setting up watcher: %v", err)
-		return
+		return err
 	}
 
 	go func() {
@@ -183,4 +183,6 @@ func (r *Router) InitHMR() {
 			}
 		}
 	}()
+
+	return nil
 }
