@@ -1,6 +1,6 @@
 //go:build !js || !wasm
 
-package types
+package server
 
 import (
 	"bytes"
