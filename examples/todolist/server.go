@@ -1,6 +1,6 @@
 //go:build !js || !wasm
 
-// * The above is not a comment, it is a go:directive that tells the compiler about the type of supported architecture upon building
+// * NOTE! The above is not a comment, it is a go:directive that tells the compiler about the type of supported architecture upon building
 package main
 
 import (
@@ -71,7 +71,7 @@ func main() {
 		}
 
 		fmt.Println("Added todo:", todo["task"])
-		return c.HTML(200, fmt.Sprintf("<li>%s</li><button class=\"delete\">Delete</button>", todo["task"]))
+		return c.HTML(200, fmt.Sprintf("<div class=\"flex flex-row flex-nowrap justify-between p-3\"><li class=\"text-lg font-medium text-gray-700\">%s</li><button class=\"delete bg-red-500 text-white px-4 py-2 rounded\">Delete</button></div>", todo["task"]))
 	})
 
 	// Obviously, Starts the server
