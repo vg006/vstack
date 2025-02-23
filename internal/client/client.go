@@ -106,3 +106,11 @@ func (n *Node) GetInnerHTML() string {
 func (n *Node) AppendChild(child Node) {
 	n.Js.Call("appendChild", child.Js)
 }
+
+func (n *Node) RemoveChild(child Node) {
+	n.Js.Call("removeChild", child.Js)
+}
+
+func (n *Node) AddEventListener(event string, handler js.Func) {
+	n.Js.Call("addEventListener", event, handler)
+}
