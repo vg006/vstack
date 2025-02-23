@@ -1,0 +1,14 @@
+<html>
+<body>
+    <h1>Todo List</h1>
+    <button id="add">Add Todo</button>
+    <ul id="todoList"></ul>
+    <link rel="stylesheet" href="/public/style.css">
+    <script src="/public/wasm_exec.js"></script>
+    <script>
+        const go = new Go();
+        WebAssembly.instantiateStreaming(fetch('/public/client.wasm'), go.importObject)
+            .then(result => go.run(result.instance));
+    </script>
+</body>
+</html>

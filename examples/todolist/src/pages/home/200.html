@@ -1,0 +1,10 @@
+<!DOCTYPE html>
+<html>
+<head><title>Home</title></head>
+<body>
+    <h1>Welcome to GoIsland</h1>
+    {{ block "dynamic" . }}
+        <h1>{{ . }}</h1>
+    {{ end }}
+</body>
+</html>
