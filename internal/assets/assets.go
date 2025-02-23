@@ -25,18 +25,18 @@ var (
 	EmojiThumbsUp = "\U0001F44D" // 👍
 	EmojiConfused = "\U0001F615" // 😕
 
-	VgoLogo = lipgloss.NewStyle().
-		Foreground(LightBlue).
-		PaddingLeft(1).
-		Bold(true).
-		BorderStyle(lipgloss.ThickBorder()).
-		BorderLeft(true).
-		BorderForeground(DarkBlue).
-		Render(`
-\  / _  _
- \/ (_](_)
-    ._|
-`)
+	VstackLogo = lipgloss.NewStyle().
+			Foreground(LightBlue).
+			PaddingLeft(1).
+			Bold(true).
+			BorderStyle(lipgloss.ThickBorder()).
+			BorderLeft(true).
+			BorderForeground(DarkBlue).
+			Render("" +
+			".    ,     |              |    \n" +
+			"|    |,---.|--- ,---.,---.|__/ \n" +
+			" \\  / `---.|    ,---||    |  \\ \n" +
+			"  `'  `---'`---'`---^`---'`   `\n")
 
 	Text = lipgloss.NewStyle().
 		PaddingLeft(1).
