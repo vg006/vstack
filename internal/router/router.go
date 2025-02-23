@@ -1,3 +1,5 @@
+//go:build !js || !wasm
+
 package types
 
 import (
@@ -13,9 +15,11 @@ import (
 )
 
 type Router struct {
-	Dir     string
-	Routes  []*Route
-	Page500 string
+	Dir       string
+	PagesDir  string
+	PublicDir string
+	Routes    []*Route
+	Page500   string
 }
 
 type Project struct {
@@ -32,13 +36,15 @@ type Route struct {
 	Page200  string
 }
 
-func NewRouter(dir, html string) *Router {
+func NewRouter(dir string) *Router {
 	return &Router{
-		Dir: dir,
+		Dir:       dir,
+		PagesDir:  dir + "/pages",
+		PublicDir: dir + "/public",
 	}
 }
 
-func (r *Route) Render(data any) error {
+func (r *Route) Render(data ...any) error {
 	var buf bytes.Buffer
 	err := r.template.Execute(&buf, data)
 	if err != nil {
@@ -51,7 +57,7 @@ func (r *Route) Render(data any) error {
 func (router *Router) Load() error {
 	var routes []*Route
 
-	err := filepath.WalkDir(router.Dir, func(path string, d fs.DirEntry, err error) error {
+	err := filepath.WalkDir(router.PagesDir, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
@@ -59,7 +65,7 @@ func (router *Router) Load() error {
 			return nil
 		}
 
-		route := strings.TrimPrefix(filepath.ToSlash(path), filepath.ToSlash(router.Dir))
+		route := strings.TrimPrefix(filepath.ToSlash(path), filepath.ToSlash(router.PagesDir))
 		if strings.HasPrefix(route, "/") {
 			route = strings.TrimPrefix(route, "/")
 		}
@@ -96,7 +102,7 @@ func (router *Router) Load() error {
 	}
 	router.Routes = routes
 
-	page500Path := filepath.Join(router.Dir, "500.html")
+	page500Path := filepath.Join(router.PagesDir, "500.html")
 	if _, err := os.Stat(page500Path); os.IsNotExist(err) {
 		baseHTML := `<html><head><title>500 - Internal Server Error</title></head><body><h1>500 - Internal Server Error</h1><p>Something went wrong.</p></body></html>`
 		router.Page500 = baseHTML
@@ -132,6 +138,13 @@ func (r *Route) Reload() error {
 		return err
 	}
 	r.template = tmpl
+	var buf bytes.Buffer
+	err = tmpl.Execute(&buf, nil)
+	if err != nil {
+		return err
+	}
+	r.Page200 = buf.String()
+	defer buf.Reset()
 	return nil
 }
 
@@ -142,7 +155,7 @@ func (r *Router) InitHMR() error {
 		return err
 	}
 
-	err = filepath.WalkDir(r.Dir, func(path string, d fs.DirEntry, err error) error {
+	err = filepath.WalkDir(r.PagesDir, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
