@@ -36,14 +36,6 @@ type Route struct {
 	Page200  string
 }
 
-func NewRouter(dir string) *Router {
-	return &Router{
-		Dir:       dir,
-		PagesDir:  dir + "/pages",
-		PublicDir: dir + "/public",
-	}
-}
-
 func (r *Route) Render(data ...any) error {
 	var buf bytes.Buffer
 	err := r.template.Execute(&buf, data)
