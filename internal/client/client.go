@@ -95,10 +95,6 @@ func (c *Client) GetElementsByClassName(class string) []Node {
 	return result
 }
 
-func (c *Client) QuerySelector(selector string) js.Value {
-	return c.Dom.Call("querySelector", selector)
-}
-
 func (n *Node) SetInnerHTML(data string) {
 	n.Js.Set("innerHTML", data)
 }
