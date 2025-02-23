@@ -7,6 +7,8 @@ Vstack is a Go-based frontend tooling that enables developers to build dynamic w
 
 By leveraging Wasm, Vstack provides a unified architecture for client-managed and server-driven rendering, with reactive state management and real-time updates.
 
+## 🚀 [Demo](https://youtu.be/GnKUMbn62Nc1)
+
 ## 💡 Inspirations
 
 - **[Htmx](https://htmx.org/):**
