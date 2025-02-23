@@ -24,10 +24,6 @@ type Island struct {
 	Class      string
 }
 
-func NewClient() Client {
-	return Client{Dom: js.Global().Get("document")}
-}
-
 func (c *Client) AddIslands(is ...Island) error {
 	for _, i := range is {
 		c.Islands = append(c.Islands, i)
