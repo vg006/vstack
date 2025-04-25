@@ -1,4 +1,4 @@
-package vtest
+package vstack
 
 type Project struct {
 	Name    string
